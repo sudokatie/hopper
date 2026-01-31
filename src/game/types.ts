@@ -78,6 +78,7 @@ export interface GameState {
   lanes: LaneState[];
   homes: HomeState[];
   status: GameStatus;
+  paused: boolean;
 }
 
 export interface LevelConfig {

@@ -11,8 +11,8 @@ export const CANVAS_HEIGHT = GRID_ROWS * CELL_SIZE; // 560
 export const PLAYER_START = { x: 6, y: 13 };
 export const PLAYER_HITBOX_SCALE = 0.8; // 80% of cell size
 
-// Homes (4 slots for MVP)
-export const HOME_COLUMNS = [1, 4, 7, 10];
+// Homes (5 slots as per spec)
+export const HOME_COLUMNS = [1, 4, 7, 10, 12];
 export const HOME_ROW = 0;
 
 // Timing (in milliseconds)

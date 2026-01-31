@@ -12,6 +12,8 @@ import {
   POINTS_HOP_FORWARD,
   RIVER_ROWS,
   ROAD_ROWS,
+  CANVAS_WIDTH,
+  CELL_SIZE,
 } from './constants';
 import type { GameState, GameStatus, Direction, HomeState } from './types';
 
@@ -30,11 +32,17 @@ export class Game {
   private timeRemaining: number = INITIAL_TIME;
   private maxTime: number = INITIAL_TIME;
   private status: GameStatus = 'title';
+  private paused: boolean = false;
   private homes: HomeState[] = [];
   private laneObjects: Lane[] = [];
   private furthestRow: number = 13; // Track furthest row reached for scoring
 
   onStateChange?: (state: GameState) => void;
+
+  // Calculate time limit for level: -2s per level, min 30s
+  private getTimeLimitForLevel(level: number): number {
+    return Math.max(30, INITIAL_TIME - (level - 1) * 2);
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -75,8 +83,10 @@ export class Game {
     this.score = 0;
     this.lives = INITIAL_LIVES;
     this.level = 1;
-    this.timeRemaining = INITIAL_TIME;
+    this.maxTime = this.getTimeLimitForLevel(1);
+    this.timeRemaining = this.maxTime;
     this.furthestRow = 13;
+    this.paused = false;
     this.player.respawn();
     this.homes = HOME_COLUMNS.map(col => ({ column: col, filled: false }));
     this.laneObjects = createDefaultLanes();
@@ -95,11 +105,12 @@ export class Game {
       lanes: this.laneObjects.map(l => l.getState()),
       homes: this.homes,
       status: this.status,
+      paused: this.paused,
     };
   }
 
   private update(deltaTime: number): void {
-    if (this.status !== 'playing') return;
+    if (this.status !== 'playing' || this.paused) return;
 
     // Update player
     this.player.update(deltaTime);
@@ -112,6 +123,9 @@ export class Game {
     // Check collisions
     this.checkCollisions();
 
+    // Check if player carried offscreen by log
+    this.checkOffscreenDeath();
+
     // Update timer
     this.timeRemaining -= deltaTime / 1000;
     if (this.timeRemaining <= 0) {
@@ -122,6 +136,18 @@ export class Game {
     // Emit state change
     if (this.onStateChange) {
       this.onStateChange(this.getState());
+    }
+  }
+
+  private checkOffscreenDeath(): void {
+    const playerState = this.player.getState();
+    if (playerState.ridingObject) {
+      const objX = playerState.ridingObject.x;
+      const objWidth = playerState.ridingObject.width * CELL_SIZE;
+      // If log has moved completely offscreen with player on it
+      if (objX + objWidth < 0 || objX > CANVAS_WIDTH) {
+        this.handleDeath();
+      }
     }
   }
 
@@ -211,6 +237,13 @@ export class Game {
     if (action === 'start') {
       if (this.status === 'title' || this.status === 'gameover') {
         this.reset();
+      } else if (this.status === 'playing' && this.paused) {
+        // Unpause with space too
+        this.paused = false;
+      }
+    } else if (action === 'pause') {
+      if (this.status === 'playing') {
+        this.paused = !this.paused;
       }
     }
   }
@@ -227,7 +260,7 @@ export class Game {
         this.checkHighScore();
       } else {
         this.player.respawn();
-        this.timeRemaining = INITIAL_TIME;
+        this.timeRemaining = this.maxTime; // Use level-appropriate time
         this.furthestRow = 13;
         this.status = 'playing';
       }
@@ -267,7 +300,8 @@ export class Game {
     this.homes = HOME_COLUMNS.map(col => ({ column: col, filled: false }));
     this.laneObjects = createLanesForLevel(this.level); // Scale difficulty
     this.player.respawn();
-    this.timeRemaining = INITIAL_TIME;
+    this.maxTime = this.getTimeLimitForLevel(this.level);
+    this.timeRemaining = this.maxTime;
     this.furthestRow = 13;
     this.status = 'levelcomplete';
 

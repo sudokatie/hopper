@@ -122,16 +122,21 @@ const baseLaneConfigs: LaneConfig[] = [
 
 // Create lanes for a specific level with difficulty scaling
 export function createLanesForLevel(level: number): Lane[] {
-  // Difficulty multiplier: 10% faster and more frequent per level
-  const speedMultiplier = 1 + (level - 1) * 0.1;
+  // Difficulty multipliers per spec: +15% traffic, +10% river per level
+  const trafficSpeedMultiplier = 1 + (level - 1) * 0.15;
+  const riverSpeedMultiplier = 1 + (level - 1) * 0.1;
   const spawnMultiplier = 1 - (level - 1) * 0.05; // Lower = more frequent
   const minSpawnInterval = 30; // Don't go below this
 
-  const scaledConfigs = baseLaneConfigs.map(config => ({
-    ...config,
-    speed: (config.speed ?? 1) * speedMultiplier,
-    spawnInterval: Math.max(minSpawnInterval, Math.floor((config.spawnInterval ?? 100) * spawnMultiplier)),
-  }));
+  const scaledConfigs = baseLaneConfigs.map(config => {
+    const isRiver = config.type === 'river';
+    const speedMult = isRiver ? riverSpeedMultiplier : trafficSpeedMultiplier;
+    return {
+      ...config,
+      speed: (config.speed ?? 1) * speedMult,
+      spawnInterval: Math.max(minSpawnInterval, Math.floor((config.spawnInterval ?? 100) * spawnMultiplier)),
+    };
+  });
 
   return scaledConfigs.map(config => new Lane(config));
 }

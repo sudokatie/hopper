@@ -87,12 +87,21 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
 
       {/* HUD */}
       {gameState && gameState.status !== 'title' && (
-        <div className="absolute top-0 left-0 right-0 bg-black/70 px-2 py-1 flex justify-between text-sm">
+        <div className="absolute top-0 left-0 right-0 bg-black/70 px-2 py-1 flex justify-between text-xs">
           <span className="text-white">Score: {gameState.score}</span>
-          <span className="text-yellow-400">Level {gameState.level}</span>
+          <span className="text-gray-400">HI: {gameState.highScore}</span>
+          <span className="text-yellow-400">Lv{gameState.level}</span>
           <span className="text-white">
-            Lives: {'🐸'.repeat(gameState.lives)}
+            {'🐸'.repeat(gameState.lives)}
           </span>
+        </div>
+      )}
+
+      {/* Pause Overlay */}
+      {gameState?.status === 'playing' && gameState.paused && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
+          <h2 className="text-3xl font-bold text-yellow-400 mb-4">PAUSED</h2>
+          <p className="text-gray-300">Press P to resume</p>
         </div>
       )}
 

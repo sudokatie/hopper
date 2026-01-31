@@ -15,6 +15,7 @@ Open http://localhost:3000
 
 - Arrow keys or WASD to hop
 - SPACE to start/restart
+- P to pause/unpause
 
 ## Gameplay
 
@@ -22,7 +23,7 @@ Open http://localhost:3000
 2. Cross the road - avoid cars and trucks
 3. Cross the river - hop on logs (don't fall in!)
 4. Reach one of the home slots at the top
-5. Fill all 4 homes to complete the level
+5. Fill all 5 homes to complete the level
 
 ## Scoring
 
