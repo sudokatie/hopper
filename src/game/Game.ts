@@ -284,7 +284,7 @@ export class Game {
       } else {
         // Respawn for next attempt
         this.player.respawn();
-        this.timeRemaining = INITIAL_TIME;
+        this.timeRemaining = this.maxTime; // Use level-appropriate time
         this.furthestRow = 13;
       }
     } else {
