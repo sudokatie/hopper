@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/game/constants';
-import { GameLoop } from '@/game/GameLoop';
-import { Renderer } from '@/game/Renderer';
+import { Game } from '@/game/Game';
 import type { GameState } from '@/game/types';
 
 interface GameCanvasProps {
@@ -12,80 +11,36 @@ interface GameCanvasProps {
 
 export function GameCanvas({ onStateChange }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameLoopRef = useRef<GameLoop | null>(null);
-  const rendererRef = useRef<Renderer | null>(null);
-  const [ready, setReady] = useState(false);
+  const gameRef = useRef<Game | null>(null);
+  const [gameState, setGameState] = useState<GameState | null>(null);
+
+  const handleStateChange = useCallback((state: GameState) => {
+    setGameState(state);
+    if (onStateChange) {
+      onStateChange(state);
+    }
+  }, [onStateChange]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    // Initialize game
+    const game = new Game(canvas);
+    game.onStateChange = handleStateChange;
+    gameRef.current = game;
 
-    // Initialize renderer
-    rendererRef.current = new Renderer(ctx);
+    // Start the game loop
+    game.start();
 
-    // Placeholder game state for testing
-    const testState: GameState = {
-      player: {
-        position: { x: 6, y: 13 },
-        alive: true,
-        ridingObject: null,
-        hopping: false,
-        hopProgress: 0,
-        hopDirection: null,
-        hopStart: null,
-      },
-      score: 0,
-      highScore: 0,
-      lives: 3,
-      level: 1,
-      timeRemaining: 60,
-      maxTime: 60,
-      lanes: [],
-      homes: [
-        { column: 1, filled: false },
-        { column: 4, filled: true },
-        { column: 7, filled: false },
-        { column: 10, filled: false },
-      ],
-      status: 'playing',
-    };
-
-    // Game loop functions
-    const update = (deltaTime: number) => {
-      // Placeholder update - just passes state
-      // deltaTime will be used for animations when we add them
-      void deltaTime;
-      if (onStateChange) {
-        onStateChange(testState);
-      }
-    };
-
-    const render = () => {
-      const renderer = rendererRef.current;
-      if (!renderer) return;
-
-      renderer.clear();
-      renderer.drawBackground();
-      renderer.drawHomes(testState.homes);
-      renderer.drawLanes(testState.lanes);
-      renderer.drawPlayer(testState.player, testState.status);
-    };
-
-    // Initialize game loop
-    gameLoopRef.current = new GameLoop(update, render);
-    gameLoopRef.current.start();
-    setReady(true);
+    // Set initial state
+    setGameState(game.getState());
 
     // Cleanup
     return () => {
-      if (gameLoopRef.current) {
-        gameLoopRef.current.stop();
-      }
+      game.stop();
     };
-  }, [onStateChange]);
+  }, [handleStateChange]);
 
   return (
     <div className="relative inline-block">
@@ -96,9 +51,58 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
         className="border-4 border-gray-800 rounded"
         style={{ imageRendering: 'pixelated' }}
       />
-      {!ready && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <span className="text-white text-xl">Loading...</span>
+
+      {/* Title Screen Overlay */}
+      {gameState?.status === 'title' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
+          <h1 className="text-4xl font-bold text-green-400 mb-4">HOPPER</h1>
+          <p className="text-gray-300 mb-2">Cross the road. Ride the logs.</p>
+          <p className="text-gray-300 mb-6">Reach home.</p>
+          {gameState.highScore > 0 && (
+            <p className="text-yellow-400 mb-4">High Score: {gameState.highScore}</p>
+          )}
+          <p className="text-white animate-pulse">Press SPACE to start</p>
+        </div>
+      )}
+
+      {/* Game Over Overlay */}
+      {gameState?.status === 'gameover' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
+          <h2 className="text-3xl font-bold text-red-500 mb-4">GAME OVER</h2>
+          <p className="text-white text-xl mb-2">Score: {gameState.score}</p>
+          {gameState.score >= gameState.highScore && gameState.score > 0 && (
+            <p className="text-yellow-400 mb-4">NEW HIGH SCORE!</p>
+          )}
+          <p className="text-gray-300 animate-pulse mt-4">Press SPACE to restart</p>
+        </div>
+      )}
+
+      {/* Level Complete Overlay */}
+      {gameState?.status === 'levelcomplete' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+          <h2 className="text-3xl font-bold text-green-400 mb-4">LEVEL {gameState.level - 1} COMPLETE!</h2>
+          <p className="text-white text-xl">Score: {gameState.score}</p>
+        </div>
+      )}
+
+      {/* HUD */}
+      {gameState && gameState.status !== 'title' && (
+        <div className="absolute top-0 left-0 right-0 bg-black/70 px-2 py-1 flex justify-between text-sm">
+          <span className="text-white">Score: {gameState.score}</span>
+          <span className="text-yellow-400">Level {gameState.level}</span>
+          <span className="text-white">
+            Lives: {'🐸'.repeat(gameState.lives)}
+          </span>
+        </div>
+      )}
+
+      {/* Timer Bar */}
+      {gameState && gameState.status === 'playing' && (
+        <div className="absolute bottom-0 left-0 right-0 h-2 bg-gray-800">
+          <div
+            className="h-full bg-green-500 transition-all duration-100"
+            style={{ width: `${(gameState.timeRemaining / gameState.maxTime) * 100}%` }}
+          />
         </div>
       )}
     </div>
