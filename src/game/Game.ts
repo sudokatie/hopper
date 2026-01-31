@@ -4,13 +4,16 @@ import { GameLoop } from './GameLoop';
 import { Renderer } from './Renderer';
 import { Input } from './Input';
 import { Player } from './Player';
+import { Lane, createDefaultLanes } from './Lane';
 import {
   HOME_COLUMNS,
   INITIAL_LIVES,
   INITIAL_TIME,
   POINTS_HOP_FORWARD,
+  RIVER_ROWS,
+  ROAD_ROWS,
 } from './constants';
-import type { GameState, GameStatus, Direction, HomeState, LaneState } from './types';
+import type { GameState, GameStatus, Direction, HomeState } from './types';
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -28,7 +31,7 @@ export class Game {
   private maxTime: number = INITIAL_TIME;
   private status: GameStatus = 'title';
   private homes: HomeState[] = [];
-  private lanes: LaneState[] = [];
+  private laneObjects: Lane[] = [];
   private furthestRow: number = 13; // Track furthest row reached for scoring
 
   onStateChange?: (state: GameState) => void;
@@ -46,6 +49,9 @@ export class Game {
 
     // Initialize homes
     this.homes = HOME_COLUMNS.map(col => ({ column: col, filled: false }));
+
+    // Initialize lanes
+    this.laneObjects = createDefaultLanes();
 
     // Load high score
     this.loadHighScore();
@@ -73,6 +79,7 @@ export class Game {
     this.furthestRow = 13;
     this.player.respawn();
     this.homes = HOME_COLUMNS.map(col => ({ column: col, filled: false }));
+    this.laneObjects = createDefaultLanes();
     this.status = 'playing';
   }
 
@@ -85,7 +92,7 @@ export class Game {
       level: this.level,
       timeRemaining: this.timeRemaining,
       maxTime: this.maxTime,
-      lanes: this.lanes,
+      lanes: this.laneObjects.map(l => l.getState()),
       homes: this.homes,
       status: this.status,
     };
@@ -96,6 +103,14 @@ export class Game {
 
     // Update player
     this.player.update(deltaTime);
+
+    // Update lanes
+    for (const lane of this.laneObjects) {
+      lane.update(deltaTime);
+    }
+
+    // Check collisions
+    this.checkCollisions();
 
     // Update timer
     this.timeRemaining -= deltaTime / 1000;
@@ -110,11 +125,64 @@ export class Game {
     }
   }
 
+  private checkCollisions(): void {
+    const playerPos = this.player.getPosition();
+    const playerHitbox = this.player.getHitbox();
+
+    // Check road collisions
+    if (ROAD_ROWS.includes(playerPos.y)) {
+      const lane = this.laneObjects.find(l => l.getRow() === playerPos.y);
+      if (lane) {
+        for (const obj of lane.getObjects()) {
+          if (this.rectanglesOverlap(playerHitbox, obj.getHitbox())) {
+            this.handleDeath();
+            return;
+          }
+        }
+      }
+    }
+
+    // Check river collisions
+    if (RIVER_ROWS.includes(playerPos.y)) {
+      const lane = this.laneObjects.find(l => l.getRow() === playerPos.y);
+      if (lane) {
+        let onLog = false;
+        for (const obj of lane.getObjects()) {
+          if (this.rectanglesOverlap(playerHitbox, obj.getHitbox())) {
+            onLog = true;
+            this.player.updateRiding(obj.getState());
+            break;
+          }
+        }
+        if (!onLog) {
+          // In water - death!
+          this.handleDeath();
+          return;
+        }
+      } else {
+        // No lane found for this row - shouldn't happen but treat as water
+        this.handleDeath();
+        return;
+      }
+    } else {
+      // Not on river, clear riding state
+      this.player.updateRiding(null);
+    }
+  }
+
+  private rectanglesOverlap(a: { x: number; y: number; width: number; height: number },
+                            b: { x: number; y: number; width: number; height: number }): boolean {
+    return a.x < b.x + b.width &&
+           a.x + a.width > b.x &&
+           a.y < b.y + b.height &&
+           a.y + a.height > b.y;
+  }
+
   private render(): void {
     this.renderer.clear();
     this.renderer.drawBackground();
     this.renderer.drawHomes(this.homes);
-    this.renderer.drawLanes(this.lanes);
+    this.renderer.drawLanes(this.laneObjects.map(l => l.getState()));
     this.renderer.drawPlayer(this.player.getState(), this.status);
   }
 
