@@ -102,24 +102,41 @@ export class Lane {
   }
 }
 
+// Base lane configurations
+const baseLaneConfigs: LaneConfig[] = [
+  // River lanes (rows 1-4)
+  { row: 1, type: 'river', direction: 'right', speed: 1.2, objectType: 'log', spawnInterval: 150 },
+  { row: 2, type: 'river', direction: 'left', speed: 1.0, objectType: 'log', spawnInterval: 180 },
+  { row: 3, type: 'river', direction: 'right', speed: 1.5, objectType: 'log', spawnInterval: 120 },
+  { row: 4, type: 'river', direction: 'left', speed: 0.8, objectType: 'log', spawnInterval: 200 },
+
+  // Road lanes (rows 6-12)
+  { row: 6, type: 'road', direction: 'left', speed: 2.0, objectType: 'car', spawnInterval: 80 },
+  { row: 7, type: 'road', direction: 'right', speed: 1.5, objectType: 'truck', spawnInterval: 150 },
+  { row: 8, type: 'road', direction: 'left', speed: 2.5, objectType: 'car', spawnInterval: 70 },
+  { row: 9, type: 'road', direction: 'right', speed: 1.8, objectType: 'car', spawnInterval: 90 },
+  { row: 10, type: 'road', direction: 'left', speed: 2.2, objectType: 'car', spawnInterval: 75 },
+  { row: 11, type: 'road', direction: 'right', speed: 1.2, objectType: 'truck', spawnInterval: 180 },
+  { row: 12, type: 'road', direction: 'left', speed: 2.8, objectType: 'car', spawnInterval: 60 },
+];
+
+// Create lanes for a specific level with difficulty scaling
+export function createLanesForLevel(level: number): Lane[] {
+  // Difficulty multiplier: 10% faster and more frequent per level
+  const speedMultiplier = 1 + (level - 1) * 0.1;
+  const spawnMultiplier = 1 - (level - 1) * 0.05; // Lower = more frequent
+  const minSpawnInterval = 30; // Don't go below this
+
+  const scaledConfigs = baseLaneConfigs.map(config => ({
+    ...config,
+    speed: (config.speed ?? 1) * speedMultiplier,
+    spawnInterval: Math.max(minSpawnInterval, Math.floor((config.spawnInterval ?? 100) * spawnMultiplier)),
+  }));
+
+  return scaledConfigs.map(config => new Lane(config));
+}
+
 // Default lane configurations for level 1
 export function createDefaultLanes(): Lane[] {
-  const configs: LaneConfig[] = [
-    // River lanes (rows 1-4)
-    { row: 1, type: 'river', direction: 'right', speed: 1.2, objectType: 'log', spawnInterval: 150 },
-    { row: 2, type: 'river', direction: 'left', speed: 1.0, objectType: 'log', spawnInterval: 180 },
-    { row: 3, type: 'river', direction: 'right', speed: 1.5, objectType: 'log', spawnInterval: 120 },
-    { row: 4, type: 'river', direction: 'left', speed: 0.8, objectType: 'log', spawnInterval: 200 },
-
-    // Road lanes (rows 6-12)
-    { row: 6, type: 'road', direction: 'left', speed: 2.0, objectType: 'car', spawnInterval: 80 },
-    { row: 7, type: 'road', direction: 'right', speed: 1.5, objectType: 'truck', spawnInterval: 150 },
-    { row: 8, type: 'road', direction: 'left', speed: 2.5, objectType: 'car', spawnInterval: 70 },
-    { row: 9, type: 'road', direction: 'right', speed: 1.8, objectType: 'car', spawnInterval: 90 },
-    { row: 10, type: 'road', direction: 'left', speed: 2.2, objectType: 'car', spawnInterval: 75 },
-    { row: 11, type: 'road', direction: 'right', speed: 1.2, objectType: 'truck', spawnInterval: 180 },
-    { row: 12, type: 'road', direction: 'left', speed: 2.8, objectType: 'car', spawnInterval: 60 },
-  ];
-
-  return configs.map(config => new Lane(config));
+  return createLanesForLevel(1);
 }

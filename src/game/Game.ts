@@ -4,7 +4,7 @@ import { GameLoop } from './GameLoop';
 import { Renderer } from './Renderer';
 import { Input } from './Input';
 import { Player } from './Player';
-import { Lane, createDefaultLanes } from './Lane';
+import { Lane, createDefaultLanes, createLanesForLevel } from './Lane';
 import {
   HOME_COLUMNS,
   INITIAL_LIVES,
@@ -265,6 +265,7 @@ export class Game {
     this.score += Math.floor(this.timeRemaining) * 10; // Time bonus
     this.level++;
     this.homes = HOME_COLUMNS.map(col => ({ column: col, filled: false }));
+    this.laneObjects = createLanesForLevel(this.level); // Scale difficulty
     this.player.respawn();
     this.timeRemaining = INITIAL_TIME;
     this.furthestRow = 13;
