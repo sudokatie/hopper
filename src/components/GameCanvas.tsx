@@ -4,6 +4,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/game/constants';
 import { Game } from '@/game/Game';
 import type { GameState } from '@/game/types';
+import { HUD } from './HUD';
+import { TitleScreen } from './TitleScreen';
+import { GameOverScreen } from './GameOverScreen';
+import { LevelCompleteScreen } from './LevelCompleteScreen';
+import { PauseScreen } from './PauseScreen';
 
 interface GameCanvasProps {
   onStateChange?: (state: GameState) => void;
@@ -42,6 +47,9 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
     };
   }, [handleStateChange]);
 
+  const showHUD = gameState && gameState.status !== 'title';
+  const isNewHighScore = gameState ? gameState.score >= gameState.highScore && gameState.score > 0 : false;
+
   return (
     <div className="relative inline-block">
       <canvas
@@ -52,67 +60,42 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
         style={{ imageRendering: 'pixelated' }}
       />
 
-      {/* Title Screen Overlay */}
+      {/* Title Screen */}
       {gameState?.status === 'title' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
-          <h1 className="text-4xl font-bold text-green-400 mb-4">HOPPER</h1>
-          <p className="text-gray-300 mb-2">Cross the road. Ride the logs.</p>
-          <p className="text-gray-300 mb-6">Reach home.</p>
-          {gameState.highScore > 0 && (
-            <p className="text-yellow-400 mb-4">High Score: {gameState.highScore}</p>
-          )}
-          <p className="text-white animate-pulse">Press SPACE to start</p>
-        </div>
+        <TitleScreen highScore={gameState.highScore} />
       )}
 
-      {/* Game Over Overlay */}
+      {/* Game Over Screen */}
       {gameState?.status === 'gameover' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
-          <h2 className="text-3xl font-bold text-red-500 mb-4">GAME OVER</h2>
-          <p className="text-white text-xl mb-2">Score: {gameState.score}</p>
-          {gameState.score >= gameState.highScore && gameState.score > 0 && (
-            <p className="text-yellow-400 mb-4">NEW HIGH SCORE!</p>
-          )}
-          <p className="text-gray-300 animate-pulse mt-4">Press SPACE to restart</p>
-        </div>
+        <GameOverScreen
+          score={gameState.score}
+          isNewHighScore={isNewHighScore}
+        />
       )}
 
-      {/* Level Complete Overlay */}
+      {/* Level Complete Screen */}
       {gameState?.status === 'levelcomplete' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
-          <h2 className="text-3xl font-bold text-green-400 mb-4">LEVEL {gameState.level - 1} COMPLETE!</h2>
-          <p className="text-white text-xl">Score: {gameState.score}</p>
-        </div>
+        <LevelCompleteScreen
+          level={gameState.level - 1}
+          score={gameState.score}
+        />
       )}
 
       {/* HUD */}
-      {gameState && gameState.status !== 'title' && (
-        <div className="absolute top-0 left-0 right-0 bg-black/70 px-2 py-1 flex justify-between text-xs">
-          <span className="text-white">Score: {gameState.score}</span>
-          <span className="text-gray-400">HI: {gameState.highScore}</span>
-          <span className="text-yellow-400">Lv{gameState.level}</span>
-          <span className="text-white">
-            {'🐸'.repeat(gameState.lives)}
-          </span>
-        </div>
+      {showHUD && (
+        <HUD
+          score={gameState.score}
+          highScore={gameState.highScore}
+          level={gameState.level}
+          lives={gameState.lives}
+          timeRemaining={gameState.timeRemaining}
+          maxTime={gameState.maxTime}
+        />
       )}
 
-      {/* Pause Overlay */}
+      {/* Pause Screen */}
       {gameState?.status === 'playing' && gameState.paused && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
-          <h2 className="text-3xl font-bold text-yellow-400 mb-4">PAUSED</h2>
-          <p className="text-gray-300">Press P to resume</p>
-        </div>
-      )}
-
-      {/* Timer Bar */}
-      {gameState && gameState.status === 'playing' && (
-        <div className="absolute bottom-0 left-0 right-0 h-2 bg-gray-800">
-          <div
-            className="h-full bg-green-500 transition-all duration-100"
-            style={{ width: `${(gameState.timeRemaining / gameState.maxTime) * 100}%` }}
-          />
-        </div>
+        <PauseScreen />
       )}
     </div>
   );
