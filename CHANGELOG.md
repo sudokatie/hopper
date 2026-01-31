@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.3 (2026-01-31)
+
+Architecture improvements per spec review.
+
+- Extracted HomeManager class (per TODOS.md spec)
+- Integrated Score class properly (was inline in Game.ts)
+- Added 14 new unit tests for HomeManager
+- Total tests: 44 (up from 30)
+
 ## 1.0.2 (2026-01-31)
 
 Documentation improvements.
