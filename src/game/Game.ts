@@ -5,17 +5,17 @@ import { Renderer } from './Renderer';
 import { Input } from './Input';
 import { Player } from './Player';
 import { Lane, createDefaultLanes, createLanesForLevel } from './Lane';
+import { HomeManager } from './Home';
+import { Score } from './Score';
 import {
-  HOME_COLUMNS,
   INITIAL_LIVES,
   INITIAL_TIME,
-  POINTS_HOP_FORWARD,
   RIVER_ROWS,
   ROAD_ROWS,
   CANVAS_WIDTH,
   CELL_SIZE,
 } from './constants';
-import type { GameState, GameStatus, Direction, HomeState } from './types';
+import type { GameState, GameStatus, Direction } from './types';
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -24,16 +24,15 @@ export class Game {
   private renderer: Renderer;
   private input: Input;
   private player: Player;
+  private homeManager: HomeManager;
+  private scoreManager: Score;
 
-  private score: number = 0;
-  private highScore: number = 0;
   private lives: number = INITIAL_LIVES;
   private level: number = 1;
   private timeRemaining: number = INITIAL_TIME;
   private maxTime: number = INITIAL_TIME;
   private status: GameStatus = 'title';
   private paused: boolean = false;
-  private homes: HomeState[] = [];
   private laneObjects: Lane[] = [];
   private furthestRow: number = 13; // Track furthest row reached for scoring
 
@@ -53,16 +52,12 @@ export class Game {
     this.renderer = new Renderer(ctx);
     this.input = new Input();
     this.player = new Player();
+    this.homeManager = new HomeManager();
+    this.scoreManager = new Score();
     this.gameLoop = new GameLoop(this.update.bind(this), this.render.bind(this));
-
-    // Initialize homes
-    this.homes = HOME_COLUMNS.map(col => ({ column: col, filled: false }));
 
     // Initialize lanes
     this.laneObjects = createDefaultLanes();
-
-    // Load high score
-    this.loadHighScore();
 
     // Set up input handlers
     this.input.onDirection(this.handleDirection.bind(this));
@@ -80,7 +75,7 @@ export class Game {
   }
 
   reset(): void {
-    this.score = 0;
+    this.scoreManager.reset();
     this.lives = INITIAL_LIVES;
     this.level = 1;
     this.maxTime = this.getTimeLimitForLevel(1);
@@ -88,7 +83,7 @@ export class Game {
     this.furthestRow = 13;
     this.paused = false;
     this.player.respawn();
-    this.homes = HOME_COLUMNS.map(col => ({ column: col, filled: false }));
+    this.homeManager.reset();
     this.laneObjects = createDefaultLanes();
     this.status = 'playing';
   }
@@ -96,14 +91,14 @@ export class Game {
   getState(): GameState {
     return {
       player: this.player.getState(),
-      score: this.score,
-      highScore: this.highScore,
+      score: this.scoreManager.getScore(),
+      highScore: this.scoreManager.getHighScore(),
       lives: this.lives,
       level: this.level,
       timeRemaining: this.timeRemaining,
       maxTime: this.maxTime,
       lanes: this.laneObjects.map(l => l.getState()),
-      homes: this.homes,
+      homes: this.homeManager.getState(),
       status: this.status,
       paused: this.paused,
     };
@@ -207,7 +202,7 @@ export class Game {
   private render(): void {
     this.renderer.clear();
     this.renderer.drawBackground();
-    this.renderer.drawHomes(this.homes);
+    this.renderer.drawHomes(this.homeManager.getState());
     this.renderer.drawLanes(this.laneObjects.map(l => l.getState()));
     this.renderer.drawPlayer(this.player.getState(), this.status);
   }
@@ -222,7 +217,7 @@ export class Game {
 
       // Score for moving forward (up)
       if (direction === 'up' && newY < this.furthestRow) {
-        this.score += POINTS_HOP_FORWARD;
+        this.scoreManager.addHopForward();
         this.furthestRow = newY;
       }
 
@@ -257,7 +252,7 @@ export class Game {
     setTimeout(() => {
       if (this.lives <= 0) {
         this.status = 'gameover';
-        this.checkHighScore();
+        this.scoreManager.checkHighScore();
       } else {
         this.player.respawn();
         this.timeRemaining = this.maxTime; // Use level-appropriate time
@@ -271,15 +266,15 @@ export class Game {
     const pos = this.player.getPosition();
 
     // Find which home slot (if any) the player landed on
-    const homeIndex = this.homes.findIndex(h => h.column === pos.x && !h.filled);
+    const homeIndex = this.homeManager.findHomeAtColumn(pos.x);
 
     if (homeIndex >= 0) {
       // Fill the home
-      this.homes[homeIndex].filled = true;
-      this.score += 50;
+      this.homeManager.fillHome(homeIndex);
+      this.scoreManager.addHome();
 
       // Check if all homes filled
-      if (this.homes.every(h => h.filled)) {
+      if (this.homeManager.allHomesFilled()) {
         this.advanceLevel();
       } else {
         // Respawn for next attempt
@@ -294,10 +289,10 @@ export class Game {
   }
 
   private advanceLevel(): void {
-    this.score += 1000; // Bonus for completing level
-    this.score += Math.floor(this.timeRemaining) * 10; // Time bonus
+    this.scoreManager.addAllHomes(); // Bonus for completing level
+    this.scoreManager.addTimeBonus(this.timeRemaining); // Time bonus
     this.level++;
-    this.homes = HOME_COLUMNS.map(col => ({ column: col, filled: false }));
+    this.homeManager.reset();
     this.laneObjects = createLanesForLevel(this.level); // Scale difficulty
     this.player.respawn();
     this.maxTime = this.getTimeLimitForLevel(this.level);
@@ -309,27 +304,5 @@ export class Game {
     setTimeout(() => {
       this.status = 'playing';
     }, 2000);
-  }
-
-  private loadHighScore(): void {
-    try {
-      const saved = localStorage.getItem('hopper_high_score');
-      if (saved) {
-        this.highScore = parseInt(saved, 10);
-      }
-    } catch {
-      // localStorage not available
-    }
-  }
-
-  private checkHighScore(): void {
-    if (this.score > this.highScore) {
-      this.highScore = this.score;
-      try {
-        localStorage.setItem('hopper_high_score', String(this.highScore));
-      } catch {
-        // localStorage not available
-      }
-    }
   }
 }
