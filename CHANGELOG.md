@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2 (2026-01-31)
+
+Documentation improvements.
+
+- Rewrote README with personality and proper structure
+- Added Author section
+- Clarified home column constants comment
+
 ## 1.0.1 (2026-01-31)
 
 Spec compliance fixes.

@@ -11,8 +11,9 @@ export const CANVAS_HEIGHT = GRID_ROWS * CELL_SIZE; // 560
 export const PLAYER_START = { x: 6, y: 13 };
 export const PLAYER_HITBOX_SCALE = 0.8; // 80% of cell size
 
-// Homes (5 slots as per spec: columns 1, 4, 7, 10, 13)
-export const HOME_COLUMNS = [1, 4, 7, 10, 12]; // Using 12 instead of 13 to stay within grid bounds
+// Homes (5 slots evenly spaced across the grid)
+// Grid is 0-12 (13 columns), so rightmost home is at column 12
+export const HOME_COLUMNS = [1, 4, 7, 10, 12];
 export const HOME_ROW = 0;
 
 // Timing (in milliseconds)
