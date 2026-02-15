@@ -15,6 +15,7 @@ No game engine. No physics library. No 47 npm packages that each do one thing. J
 - Difficulty scaling that actually works (traffic gets faster, time gets shorter)
 - High score persistence (your shame is saved locally)
 - Pause functionality (for when your boss walks by)
+- Retro sound effects (synthesized, no audio files needed)
 
 ## Quick Start
 
@@ -43,6 +44,18 @@ Open http://localhost:3000 and try not to get hit by traffic.
 
 Each level speeds up traffic, speeds up logs, and gives you less time. Eventually you will lose. That's the game.
 
+## Sound
+
+Sound effects are synthesized using the Web Audio API - no audio files needed. Simple retro beeps and boops for:
+- Hopping
+- Splashing (water death)
+- Splatting (vehicle death)
+- Reaching home
+- Level complete
+- Game over
+
+The game exposes `toggleSound()`, `setVolume()`, and `getVolume()` methods if you want to add a mute button.
+
 ## Scoring
 
 | Action | Points |
@@ -57,7 +70,7 @@ Each level speeds up traffic, speeds up logs, and gives you less time. Eventuall
 - Next.js 14 + TypeScript
 - HTML5 Canvas (no game engine)
 - Tailwind CSS for UI chrome
-- 30 tests for the bits that matter
+- 51 tests for the bits that matter
 
 ## License
 

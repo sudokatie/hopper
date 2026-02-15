@@ -7,6 +7,7 @@ import { Player } from './Player';
 import { Lane, createDefaultLanes, createLanesForLevel } from './Lane';
 import { HomeManager } from './Home';
 import { Score } from './Score';
+import { getSoundSystem, type SoundSystem } from './Sound';
 import {
   INITIAL_LIVES,
   INITIAL_TIME,
@@ -26,6 +27,7 @@ export class Game {
   private player: Player;
   private homeManager: HomeManager;
   private scoreManager: Score;
+  private sound: SoundSystem;
 
   private lives: number = INITIAL_LIVES;
   private level: number = 1;
@@ -35,6 +37,7 @@ export class Game {
   private paused: boolean = false;
   private laneObjects: Lane[] = [];
   private furthestRow: number = 13; // Track furthest row reached for scoring
+  private deathCause: 'vehicle' | 'water' | 'timeout' | null = null;
 
   onStateChange?: (state: GameState) => void;
 
@@ -54,6 +57,7 @@ export class Game {
     this.player = new Player();
     this.homeManager = new HomeManager();
     this.scoreManager = new Score();
+    this.sound = getSoundSystem();
     this.gameLoop = new GameLoop(this.update.bind(this), this.render.bind(this));
 
     // Initialize lanes
@@ -82,10 +86,29 @@ export class Game {
     this.timeRemaining = this.maxTime;
     this.furthestRow = 13;
     this.paused = false;
+    this.deathCause = null;
     this.player.respawn();
     this.homeManager.reset();
     this.laneObjects = createDefaultLanes();
     this.status = 'playing';
+  }
+
+  toggleSound(): boolean {
+    const newState = !this.sound.isEnabled();
+    this.sound.setEnabled(newState);
+    return newState;
+  }
+
+  isSoundEnabled(): boolean {
+    return this.sound.isEnabled();
+  }
+
+  setVolume(volume: number): void {
+    this.sound.setVolume(volume);
+  }
+
+  getVolume(): number {
+    return this.sound.getVolume();
   }
 
   getState(): GameState {
@@ -124,6 +147,7 @@ export class Game {
     // Update timer
     this.timeRemaining -= deltaTime / 1000;
     if (this.timeRemaining <= 0) {
+      this.deathCause = 'timeout';
       this.handleDeath();
       return;
     }
@@ -141,6 +165,7 @@ export class Game {
       const objWidth = playerState.ridingObject.width * CELL_SIZE;
       // If log has moved completely offscreen with player on it
       if (objX + objWidth < 0 || objX > CANVAS_WIDTH) {
+        this.deathCause = 'water';
         this.handleDeath();
       }
     }
@@ -156,6 +181,7 @@ export class Game {
       if (lane) {
         for (const obj of lane.getObjects()) {
           if (this.rectanglesOverlap(playerHitbox, obj.getHitbox())) {
+            this.deathCause = 'vehicle';
             this.handleDeath();
             return;
           }
@@ -177,11 +203,13 @@ export class Game {
         }
         if (!onLog) {
           // In water - death!
+          this.deathCause = 'water';
           this.handleDeath();
           return;
         }
       } else {
         // No lane found for this row - shouldn't happen but treat as water
+        this.deathCause = 'water';
         this.handleDeath();
         return;
       }
@@ -213,6 +241,7 @@ export class Game {
     const hopped = this.player.hop(direction);
 
     if (hopped) {
+      this.sound.play('hop');
       const newY = this.player.getPosition().y;
 
       // Score for moving forward (up)
@@ -244,6 +273,14 @@ export class Game {
   }
 
   private handleDeath(): void {
+    // Play death sound based on cause
+    if (this.deathCause === 'water') {
+      this.sound.play('splash');
+    } else {
+      this.sound.play('splat');
+    }
+    this.deathCause = null;
+
     this.player.die();
     this.lives--;
     this.status = 'dying';
@@ -252,6 +289,7 @@ export class Game {
     setTimeout(() => {
       if (this.lives <= 0) {
         this.status = 'gameover';
+        this.sound.play('gameOver');
         this.scoreManager.checkHighScore();
       } else {
         this.player.respawn();
@@ -270,6 +308,7 @@ export class Game {
 
     if (homeIndex >= 0) {
       // Fill the home
+      this.sound.play('home');
       this.homeManager.fillHome(homeIndex);
       this.scoreManager.addHome();
 
@@ -284,11 +323,13 @@ export class Game {
       }
     } else {
       // Landed on invalid spot - death
+      this.deathCause = 'vehicle'; // Treat as splat
       this.handleDeath();
     }
   }
 
   private advanceLevel(): void {
+    this.sound.play('levelUp');
     this.scoreManager.addAllHomes(); // Bonus for completing level
     this.scoreManager.addTimeBonus(this.timeRemaining); // Time bonus
     this.level++;
