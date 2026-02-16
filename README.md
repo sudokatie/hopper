@@ -16,6 +16,7 @@ No game engine. No physics library. No 47 npm packages that each do one thing. J
 - High score persistence (your shame is saved locally)
 - Pause functionality (for when your boss walks by)
 - Retro sound effects (synthesized, no audio files needed)
+- High score leaderboard (compete against yourself)
 
 ## Quick Start
 
