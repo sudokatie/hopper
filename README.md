@@ -16,6 +16,7 @@ No game engine. No physics library. No 47 npm packages that each do one thing. J
 - High score persistence (your shame is saved locally)
 - Pause functionality (for when your boss walks by)
 - Retro sound effects (synthesized, no audio files needed)
+- Background music (bouncy chiptune loops)
 - High score leaderboard (compete against yourself)
 
 ## Quick Start
@@ -57,6 +58,17 @@ Sound effects are synthesized using the Web Audio API - no audio files needed. S
 
 The game exposes `toggleSound()`, `setVolume()`, and `getVolume()` methods if you want to add a mute button.
 
+## Music
+
+Background music is a bouncy, arcade-style chiptune loop generated entirely with the Web Audio API. No audio files, just synthesized triangle waves with that classic 8-bit feel.
+
+Control music via the exported `Music` singleton:
+- `Music.play()` - start the tunes
+- `Music.stop()` - silence
+- `Music.toggle()` - flip state
+- `Music.setVolume(0-1)` - adjust level
+- `Music.setEnabled(bool)` - enable/disable
+
 ## Scoring
 
 | Action | Points |
@@ -71,7 +83,7 @@ The game exposes `toggleSound()`, `setVolume()`, and `getVolume()` methods if yo
 - Next.js 14 + TypeScript
 - HTML5 Canvas (no game engine)
 - Tailwind CSS for UI chrome
-- 51 tests for the bits that matter
+- 74 tests for the bits that matter
 
 ## License
 
