@@ -30,11 +30,18 @@ Open http://localhost:3000 and try not to get hit by traffic.
 
 ## Controls
 
+### Keyboard
 | Key | Action |
 |-----|--------|
 | Arrow keys / WASD | Hop |
 | Space | Start / Restart |
 | P | Pause |
+
+### Mobile / Touch
+| Gesture | Action |
+|---------|--------|
+| Swipe up/down/left/right | Hop |
+| Tap | Start / Restart |
 
 ## Gameplay
 
