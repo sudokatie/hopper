@@ -9,6 +9,7 @@ import { TitleScreen } from './TitleScreen';
 import { GameOverScreen } from './GameOverScreen';
 import { LevelCompleteScreen } from './LevelCompleteScreen';
 import { PauseScreen } from './PauseScreen';
+import { Music } from '@/game/Music';
 
 interface GameCanvasProps {
   onStateChange?: (state: GameState) => void;
@@ -49,6 +50,28 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
 
   const showHUD = gameState && gameState.status !== 'title';
   const isNewHighScore = gameState ? gameState.score >= gameState.highScore && gameState.score > 0 : false;
+
+  // Switch music tracks based on game state
+  useEffect(() => {
+    if (!gameState) return;
+    
+    switch (gameState.status) {
+      case 'title':
+        Music.play('menu');
+        break;
+      case 'playing':
+        if (!gameState.paused) {
+          Music.play('gameplay');
+        }
+        break;
+      case 'levelcomplete':
+        Music.play('victory');
+        break;
+      case 'gameover':
+        Music.play('gameover');
+        break;
+    }
+  }, [gameState?.status, gameState?.paused]);
 
   return (
     <div className="relative inline-block">
