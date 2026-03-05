@@ -18,6 +18,7 @@ No game engine. No physics library. No 47 npm packages that each do one thing. J
 - Retro sound effects (synthesized, no audio files needed)
 - Background music (bouncy chiptune loops)
 - High score leaderboard (compete against yourself)
+- Daily challenges with shareable scores
 
 ## Quick Start
 
