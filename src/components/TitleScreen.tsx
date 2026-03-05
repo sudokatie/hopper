@@ -1,10 +1,14 @@
 // Hopper - Title Screen Component
 
+import { todayString } from '@/game/Daily';
+
 interface TitleScreenProps {
   highScore: number;
+  onStartNormal: () => void;
+  onStartDaily: () => void;
 }
 
-export function TitleScreen({ highScore }: TitleScreenProps) {
+export function TitleScreen({ highScore, onStartNormal, onStartDaily }: TitleScreenProps) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
       <h1 className="text-4xl font-bold text-green-400 mb-4">HOPPER</h1>
@@ -13,7 +17,24 @@ export function TitleScreen({ highScore }: TitleScreenProps) {
       {highScore > 0 && (
         <p className="text-yellow-400 mb-4">High Score: {highScore}</p>
       )}
-      <p className="text-white animate-pulse">Press SPACE to start</p>
+      
+      <div className="flex flex-col gap-3 mt-4">
+        <button
+          onClick={onStartNormal}
+          className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded transition-colors"
+        >
+          PLAY
+        </button>
+        <button
+          onClick={onStartDaily}
+          className="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded transition-colors"
+        >
+          DAILY CHALLENGE
+        </button>
+        <p className="text-purple-300 text-sm text-center">{todayString()}</p>
+      </div>
+      
+      <p className="text-gray-400 text-sm mt-4">Press SPACE for normal mode</p>
     </div>
   );
 }

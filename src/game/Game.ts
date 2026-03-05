@@ -331,11 +331,12 @@ export class Game {
         this.scoreManager.checkHighScore();
         // Record to daily leaderboard if in daily mode
         if (this.dailyMode) {
+          const filledCount = this.homeManager.getState().filter(h => h.filled).length;
           DailyLeaderboard.recordScore(
             'Player', // Name - UI should prompt for this
             this.scoreManager.getScore(),
             this.level,
-            this.homeManager.getFilledCount()
+            filledCount
           );
         }
       } else {

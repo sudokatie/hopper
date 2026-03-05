@@ -85,7 +85,11 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
 
       {/* Title Screen */}
       {gameState?.status === 'title' && (
-        <TitleScreen highScore={gameState.highScore} />
+        <TitleScreen
+          highScore={gameState.highScore}
+          onStartNormal={() => gameRef.current?.reset()}
+          onStartDaily={() => gameRef.current?.startDaily()}
+        />
       )}
 
       {/* Game Over Screen */}
@@ -93,6 +97,7 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
         <GameOverScreen
           score={gameState.score}
           isNewHighScore={isNewHighScore}
+          dailyMode={gameRef.current?.isDailyMode() ?? false}
         />
       )}
 
