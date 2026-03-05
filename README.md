@@ -86,12 +86,47 @@ Control music via the exported `Music` singleton:
 | Complete level | +1000 |
 | Time bonus | +10 per second remaining |
 
+## Achievements
+
+21 achievements across 4 categories track your frog mastery:
+
+### Skill
+- Baby Steps: First hop
+- Home Safe: Reach a home
+- Road Warrior: Complete level 1
+- Untouchable: Complete a level without dying
+- Speed Demon: Reach home with 50+ seconds remaining
+- Close Call: Reach home with less than 5 seconds remaining
+
+### Exploration
+- Log Rider: Ride a log across the river
+- Traffic Navigator: Cross all road lanes in one life
+- Living on the Edge: Visit both edge columns in one game
+
+### Mastery
+- Veteran: Reach level 5
+- Master Hopper: Reach level 10
+- Thousand Club: Score 1,000 points
+- High Scorer: Score 5,000 points
+- Legend: Score 10,000 points
+- Frogger Pro: Reach level 3 without dying
+
+### Daily
+- Daily Player: Complete a daily challenge
+- Daily Contender: Top 10 in daily challenge
+- Daily Champion: Top 3 in daily challenge
+- Daily Legend: First place in daily challenge
+- Consistent: 3-day daily streak
+- Dedicated: 7-day daily streak
+
+Achievements persist to localStorage. Access via `getAchievementManager()` to check progress.
+
 ## Tech Stack
 
 - Next.js 14 + TypeScript
 - HTML5 Canvas (no game engine)
 - Tailwind CSS for UI chrome
-- 74 tests for the bits that matter
+- 126 tests for the bits that matter
 
 ## License
 

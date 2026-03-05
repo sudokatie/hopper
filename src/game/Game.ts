@@ -10,12 +10,18 @@ import { HomeManager } from './Home';
 import { Score } from './Score';
 import { getSoundSystem, type SoundSystem } from './Sound';
 import {
+  Achievement,
+  getAchievementManager,
+  AchievementManager,
+} from './Achievements';
+import {
   INITIAL_LIVES,
   INITIAL_TIME,
   RIVER_ROWS,
   ROAD_ROWS,
   CANVAS_WIDTH,
   CELL_SIZE,
+  GRID_COLS,
 } from './constants';
 import type { GameState, GameStatus, Direction } from './types';
 
@@ -45,7 +51,17 @@ export class Game {
   private dailySeed: number = 0;
   private dailyDate: string = '';
 
+  // Achievement tracking
+  private achievements: AchievementManager;
+  private deathsThisLevel: number = 0;
+  private deathsThisGame: number = 0;
+  private visitedColumns: Set<number> = new Set();
+  private crossedRoadLanes: Set<number> = new Set();
+  private logRideStartX: number | null = null;
+  private hasHopped: boolean = false;
+
   onStateChange?: (state: GameState) => void;
+  onAchievementUnlocked?: (achievement: Achievement) => void;
 
   // Calculate time limit for level: -2s per level, min 30s
   private getTimeLimitForLevel(level: number): number {
@@ -64,6 +80,7 @@ export class Game {
     this.homeManager = new HomeManager();
     this.scoreManager = new Score();
     this.sound = getSoundSystem();
+    this.achievements = getAchievementManager();
     this.gameLoop = new GameLoop(this.update.bind(this), this.render.bind(this));
 
     // Initialize lanes
@@ -96,6 +113,13 @@ export class Game {
     this.dailyMode = false;
     this.dailySeed = 0;
     this.dailyDate = '';
+    // Reset achievement tracking
+    this.deathsThisLevel = 0;
+    this.deathsThisGame = 0;
+    this.visitedColumns.clear();
+    this.crossedRoadLanes.clear();
+    this.logRideStartX = null;
+    this.hasHopped = false;
     this.player.respawn();
     this.homeManager.reset();
     this.laneObjects = createDefaultLanes();
@@ -115,6 +139,13 @@ export class Game {
     this.dailyMode = true;
     this.dailySeed = todaySeed();
     this.dailyDate = todayString();
+    // Reset achievement tracking
+    this.deathsThisLevel = 0;
+    this.deathsThisGame = 0;
+    this.visitedColumns.clear();
+    this.crossedRoadLanes.clear();
+    this.logRideStartX = null;
+    this.hasHopped = false;
     this.player.respawn();
     this.homeManager.reset();
     this.laneObjects = createDailyLanes(this.dailySeed, 1);
@@ -273,6 +304,21 @@ export class Game {
     this.renderer.drawPlayer(this.player.getState(), this.status);
   }
 
+  private fireAchievement(achievement: Achievement): void {
+    if (this.onAchievementUnlocked) {
+      this.onAchievementUnlocked(achievement);
+    }
+  }
+
+  private checkAchievements(ids: string[]): void {
+    for (const id of ids) {
+      const unlocked = this.achievements.unlock(id);
+      if (unlocked) {
+        this.fireAchievement(unlocked);
+      }
+    }
+  }
+
   private handleDirection(direction: Direction): void {
     if (this.status !== 'playing') return;
 
@@ -280,7 +326,36 @@ export class Game {
 
     if (hopped) {
       this.sound.play('hop');
-      const newY = this.player.getPosition().y;
+      const pos = this.player.getPosition();
+      const newY = pos.y;
+      const newX = pos.x;
+
+      // First hop achievement
+      if (!this.hasHopped) {
+        this.hasHopped = true;
+        this.checkAchievements(['first_hop']);
+      }
+
+      // Track visited columns for edge hopper achievement
+      this.visitedColumns.add(newX);
+      if (this.visitedColumns.has(0) && this.visitedColumns.has(GRID_COLS - 1)) {
+        this.checkAchievements(['edge_hopper']);
+      }
+
+      // Track road lanes crossed
+      if (ROAD_ROWS.includes(newY)) {
+        this.crossedRoadLanes.add(newY);
+        if (this.crossedRoadLanes.size === ROAD_ROWS.length) {
+          this.checkAchievements(['all_lanes']);
+        }
+      }
+
+      // Track log riding start position
+      if (RIVER_ROWS.includes(newY) && this.logRideStartX === null) {
+        this.logRideStartX = newX;
+      } else if (!RIVER_ROWS.includes(newY)) {
+        this.logRideStartX = null;
+      }
 
       // Score for moving forward (up)
       if (direction === 'up' && newY < this.furthestRow) {
@@ -321,7 +396,13 @@ export class Game {
 
     this.player.die();
     this.lives--;
+    this.deathsThisLevel++;
+    this.deathsThisGame++;
     this.status = 'dying';
+
+    // Reset per-life tracking
+    this.crossedRoadLanes.clear();
+    this.logRideStartX = null;
 
     // After death animation, check game over or respawn
     setTimeout(() => {
@@ -329,15 +410,29 @@ export class Game {
         this.status = 'gameover';
         this.sound.play('gameOver');
         this.scoreManager.checkHighScore();
+
+        // Check score achievements
+        const score = this.scoreManager.getScore();
+        const achievementsToCheck: string[] = [];
+        if (score >= 1000) achievementsToCheck.push('score_1000');
+        if (score >= 5000) achievementsToCheck.push('score_5000');
+        if (score >= 10000) achievementsToCheck.push('score_10000');
+        this.checkAchievements(achievementsToCheck);
+
         // Record to daily leaderboard if in daily mode
         if (this.dailyMode) {
           const filledCount = this.homeManager.getState().filter(h => h.filled).length;
-          DailyLeaderboard.recordScore(
+          const rank = DailyLeaderboard.recordScore(
             'Player', // Name - UI should prompt for this
             this.scoreManager.getScore(),
             this.level,
             filledCount
           );
+          // Check daily achievements
+          const dailyAchievements = this.achievements.recordDailyCompletion(rank);
+          for (const a of dailyAchievements) {
+            this.fireAchievement(a);
+          }
         }
       } else {
         this.player.respawn();
@@ -360,6 +455,29 @@ export class Game {
       this.homeManager.fillHome(homeIndex);
       this.scoreManager.addHome();
 
+      // Achievement: first home
+      this.checkAchievements(['home_safe']);
+
+      // Achievement: speed demon (50+ seconds remaining)
+      if (this.timeRemaining >= 50) {
+        this.checkAchievements(['speed_demon']);
+      }
+
+      // Achievement: close call (less than 5 seconds remaining)
+      if (this.timeRemaining < 5) {
+        this.checkAchievements(['close_call']);
+      }
+
+      // Achievement: log rider (rode across entire river)
+      // Check if we traveled significant horizontal distance on logs
+      if (this.logRideStartX !== null) {
+        const rideDistance = Math.abs(pos.x - this.logRideStartX);
+        if (rideDistance >= 8) {
+          // Rode at least 8 cells (more than half the width)
+          this.checkAchievements(['log_rider']);
+        }
+      }
+
       // Check if all homes filled
       if (this.homeManager.allHomesFilled()) {
         this.advanceLevel();
@@ -368,6 +486,8 @@ export class Game {
         this.player.respawn();
         this.timeRemaining = this.maxTime; // Use level-appropriate time
         this.furthestRow = 13;
+        this.crossedRoadLanes.clear();
+        this.logRideStartX = null;
       }
     } else {
       // Landed on invalid spot - death
@@ -380,7 +500,39 @@ export class Game {
     this.sound.play('levelUp');
     this.scoreManager.addAllHomes(); // Bonus for completing level
     this.scoreManager.addTimeBonus(this.timeRemaining); // Time bonus
+
+    // Check level completion achievements
+    const achievementsToCheck: string[] = ['level_complete'];
+
+    // Perfect level (no deaths this level)
+    if (this.deathsThisLevel === 0) {
+      achievementsToCheck.push('perfect_level');
+    }
+
+    // Level milestones
+    if (this.level === 1) {
+      // Completing level 1 means we're going to level 2
+    }
+    if (this.level >= 4 && this.deathsThisGame === 0) {
+      // No deaths and reached level 5 (after completing level 4)
+      achievementsToCheck.push('no_death_level_3');
+    }
+
+    this.checkAchievements(achievementsToCheck);
+
     this.level++;
+
+    // Check level milestones after incrementing
+    const levelAchievements: string[] = [];
+    if (this.level >= 5) levelAchievements.push('level_5');
+    if (this.level >= 10) levelAchievements.push('level_10');
+    this.checkAchievements(levelAchievements);
+
+    // Reset per-level tracking
+    this.deathsThisLevel = 0;
+    this.crossedRoadLanes.clear();
+    this.logRideStartX = null;
+
     this.homeManager.reset();
     // Use seeded lanes in daily mode
     this.laneObjects = this.dailyMode
