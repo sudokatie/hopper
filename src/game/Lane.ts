@@ -3,6 +3,7 @@
 import { MovingObject, MovingObjectConfig } from './MovingObject';
 import { CAR_WIDTH, TRUCK_WIDTH, SHORT_LOG_WIDTH, LONG_LOG_WIDTH } from './constants';
 import type { LaneType, ObjectType, LaneState, LaneConfig } from './types';
+import { SeededRNG } from './Daily';
 
 export class Lane {
   private row: number;
@@ -144,4 +145,47 @@ export function createLanesForLevel(level: number): Lane[] {
 // Default lane configurations for level 1
 export function createDefaultLanes(): Lane[] {
   return createLanesForLevel(1);
+}
+
+/**
+ * Create lanes for daily challenge with seeded randomization.
+ * The seed ensures everyone gets the same traffic patterns each day.
+ */
+export function createDailyLanes(seed: number, level: number): Lane[] {
+  const rng = new SeededRNG(seed + level * 1000); // Different pattern per level
+
+  // Difficulty multipliers
+  const trafficSpeedMultiplier = 1 + (level - 1) * 0.15;
+  const riverSpeedMultiplier = 1 + (level - 1) * 0.1;
+  const spawnMultiplier = 1 - (level - 1) * 0.05;
+  const minSpawnInterval = 30;
+
+  // Randomize lane configs using seeded RNG
+  const dailyConfigs = baseLaneConfigs.map(config => {
+    const isRiver = config.type === 'river';
+    const baseSpeed = config.speed ?? 1;
+    const speedMult = isRiver ? riverSpeedMultiplier : trafficSpeedMultiplier;
+
+    // Add seeded variation: speed +/- 20%, spawn interval +/- 30%
+    const speedVariation = rng.nextFloat(0.8, 1.2);
+    const spawnVariation = rng.nextFloat(0.7, 1.3);
+
+    // Possibly flip direction
+    const flipDirection = rng.next() > 0.7; // 30% chance
+    const direction = flipDirection
+      ? (config.direction === 'left' ? 'right' : 'left')
+      : config.direction;
+
+    return {
+      ...config,
+      direction,
+      speed: baseSpeed * speedMult * speedVariation,
+      spawnInterval: Math.max(
+        minSpawnInterval,
+        Math.floor((config.spawnInterval ?? 100) * spawnMultiplier * spawnVariation)
+      ),
+    };
+  });
+
+  return dailyConfigs.map(config => new Lane(config));
 }

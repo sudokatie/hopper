@@ -4,7 +4,8 @@ import { GameLoop } from './GameLoop';
 import { Renderer } from './Renderer';
 import { Input } from './Input';
 import { Player } from './Player';
-import { Lane, createDefaultLanes, createLanesForLevel } from './Lane';
+import { Lane, createDefaultLanes, createLanesForLevel, createDailyLanes } from './Lane';
+import { todaySeed, todayString, DailyLeaderboard } from './Daily';
 import { HomeManager } from './Home';
 import { Score } from './Score';
 import { getSoundSystem, type SoundSystem } from './Sound';
@@ -38,6 +39,11 @@ export class Game {
   private laneObjects: Lane[] = [];
   private furthestRow: number = 13; // Track furthest row reached for scoring
   private deathCause: 'vehicle' | 'water' | 'timeout' | null = null;
+
+  // Daily challenge state
+  private dailyMode: boolean = false;
+  private dailySeed: number = 0;
+  private dailyDate: string = '';
 
   onStateChange?: (state: GameState) => void;
 
@@ -87,10 +93,42 @@ export class Game {
     this.furthestRow = 13;
     this.paused = false;
     this.deathCause = null;
+    this.dailyMode = false;
+    this.dailySeed = 0;
+    this.dailyDate = '';
     this.player.respawn();
     this.homeManager.reset();
     this.laneObjects = createDefaultLanes();
     this.status = 'playing';
+  }
+
+  /** Start a daily challenge run */
+  startDaily(): void {
+    this.scoreManager.reset();
+    this.lives = INITIAL_LIVES;
+    this.level = 1;
+    this.maxTime = this.getTimeLimitForLevel(1);
+    this.timeRemaining = this.maxTime;
+    this.furthestRow = 13;
+    this.paused = false;
+    this.deathCause = null;
+    this.dailyMode = true;
+    this.dailySeed = todaySeed();
+    this.dailyDate = todayString();
+    this.player.respawn();
+    this.homeManager.reset();
+    this.laneObjects = createDailyLanes(this.dailySeed, 1);
+    this.status = 'playing';
+  }
+
+  /** Check if currently in daily mode */
+  isDailyMode(): boolean {
+    return this.dailyMode;
+  }
+
+  /** Get today's daily leaderboard */
+  getDailyLeaderboard(): ReturnType<typeof DailyLeaderboard.getToday> {
+    return DailyLeaderboard.getToday();
   }
 
   toggleSound(): boolean {
@@ -291,6 +329,15 @@ export class Game {
         this.status = 'gameover';
         this.sound.play('gameOver');
         this.scoreManager.checkHighScore();
+        // Record to daily leaderboard if in daily mode
+        if (this.dailyMode) {
+          DailyLeaderboard.recordScore(
+            'Player', // Name - UI should prompt for this
+            this.scoreManager.getScore(),
+            this.level,
+            this.homeManager.getFilledCount()
+          );
+        }
       } else {
         this.player.respawn();
         this.timeRemaining = this.maxTime; // Use level-appropriate time
@@ -334,7 +381,10 @@ export class Game {
     this.scoreManager.addTimeBonus(this.timeRemaining); // Time bonus
     this.level++;
     this.homeManager.reset();
-    this.laneObjects = createLanesForLevel(this.level); // Scale difficulty
+    // Use seeded lanes in daily mode
+    this.laneObjects = this.dailyMode
+      ? createDailyLanes(this.dailySeed, this.level)
+      : createLanesForLevel(this.level);
     this.player.respawn();
     this.maxTime = this.getTimeLimitForLevel(this.level);
     this.timeRemaining = this.maxTime;
