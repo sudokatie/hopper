@@ -6,9 +6,11 @@ interface GameOverScreenProps {
   score: number;
   isNewHighScore: boolean;
   dailyMode: boolean;
+  hasReplay?: boolean;
+  onShareReplay?: () => void;
 }
 
-export function GameOverScreen({ score, isNewHighScore, dailyMode }: GameOverScreenProps) {
+export function GameOverScreen({ score, isNewHighScore, dailyMode, hasReplay, onShareReplay }: GameOverScreenProps) {
   const dailyScores = dailyMode ? DailyLeaderboard.getToday() : [];
   const shareCode = dailyMode ? generateShareCode(todayString(), score) : '';
   const dailyRank = dailyMode ? dailyScores.findIndex(s => s.score === score) + 1 : 0;
@@ -43,6 +45,15 @@ export function GameOverScreen({ score, isNewHighScore, dailyMode }: GameOverScr
         isNewHighScore && (
           <p className="text-yellow-400 mb-4">NEW HIGH SCORE!</p>
         )
+      )}
+      
+      {hasReplay && onShareReplay && (
+        <button
+          onClick={onShareReplay}
+          className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded transition-colors mt-4"
+        >
+          SHARE REPLAY
+        </button>
       )}
       
       <p className="text-gray-300 animate-pulse mt-4">Press SPACE to restart</p>

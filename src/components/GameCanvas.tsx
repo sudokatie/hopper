@@ -4,11 +4,14 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '@/game/constants';
 import { Game } from '@/game/Game';
 import type { GameState } from '@/game/types';
+import type { ReplayData } from '@/game/Replay';
 import { HUD } from './HUD';
 import { TitleScreen } from './TitleScreen';
 import { GameOverScreen } from './GameOverScreen';
 import { LevelCompleteScreen } from './LevelCompleteScreen';
 import { PauseScreen } from './PauseScreen';
+import { ReplayView } from './ReplayView';
+import { ReplayImport } from './ReplayImport';
 import { Music } from '@/game/Music';
 
 interface GameCanvasProps {
@@ -19,6 +22,9 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Game | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [showReplayView, setShowReplayView] = useState(false);
+  const [showReplayImport, setShowReplayImport] = useState(false);
+  const [currentReplayData, setCurrentReplayData] = useState<ReplayData | null>(null);
 
   const handleStateChange = useCallback((state: GameState) => {
     setGameState(state);
@@ -50,6 +56,40 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
 
   const showHUD = gameState && gameState.status !== 'title';
   const isNewHighScore = gameState ? gameState.score >= gameState.highScore && gameState.score > 0 : false;
+
+  // Replay handlers
+  const handleShowReplayView = useCallback(() => {
+    const data = gameRef.current?.getLastReplayData();
+    if (data) {
+      setCurrentReplayData(data);
+      setShowReplayView(true);
+    }
+  }, []);
+
+  const handleCloseReplayView = useCallback(() => {
+    setShowReplayView(false);
+    setCurrentReplayData(null);
+  }, []);
+
+  const handleOpenReplayImport = useCallback(() => {
+    setShowReplayImport(true);
+  }, []);
+
+  const handleCloseReplayImport = useCallback(() => {
+    setShowReplayImport(false);
+  }, []);
+
+  const handleImportReplay = useCallback((data: ReplayData) => {
+    setShowReplayImport(false);
+    gameRef.current?.startPlayback(data);
+  }, []);
+
+  const handleWatchReplayFromView = useCallback(() => {
+    if (currentReplayData) {
+      setShowReplayView(false);
+      gameRef.current?.startPlayback(currentReplayData);
+    }
+  }, [currentReplayData]);
 
   // Switch music tracks based on game state
   useEffect(() => {
@@ -89,6 +129,7 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
           highScore={gameState.highScore}
           onStartNormal={() => gameRef.current?.reset()}
           onStartDaily={() => gameRef.current?.startDaily()}
+          onWatchReplay={handleOpenReplayImport}
         />
       )}
 
@@ -98,6 +139,8 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
           score={gameState.score}
           isNewHighScore={isNewHighScore}
           dailyMode={gameRef.current?.isDailyMode() ?? false}
+          hasReplay={gameRef.current?.getLastReplayData() !== null}
+          onShareReplay={handleShowReplayView}
         />
       )}
 
@@ -124,6 +167,71 @@ export function GameCanvas({ onStateChange }: GameCanvasProps) {
       {/* Pause Screen */}
       {gameState?.status === 'playing' && gameState.paused && (
         <PauseScreen />
+      )}
+
+      {/* Replay playback progress bar */}
+      {gameRef.current?.isPlaybackMode() && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '10px',
+            left: '10px',
+            right: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              height: '8px',
+              backgroundColor: '#333',
+              borderRadius: '4px',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${(gameRef.current?.getPlaybackProgress() ?? 0) * 100}%`,
+                height: '100%',
+                backgroundColor: '#3b82f6',
+                transition: 'width 0.1s',
+              }}
+            />
+          </div>
+          <button
+            onClick={() => gameRef.current?.stopPlayback()}
+            style={{
+              backgroundColor: '#ef4444',
+              color: '#fff',
+              border: 'none',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+            }}
+          >
+            STOP
+          </button>
+        </div>
+      )}
+
+      {/* Replay View Modal */}
+      {showReplayView && currentReplayData && (
+        <ReplayView
+          data={currentReplayData}
+          onClose={handleCloseReplayView}
+          onWatch={handleWatchReplayFromView}
+        />
+      )}
+
+      {/* Replay Import Modal */}
+      {showReplayImport && (
+        <ReplayImport
+          onImport={handleImportReplay}
+          onClose={handleCloseReplayImport}
+        />
       )}
     </div>
   );

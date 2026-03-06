@@ -6,9 +6,10 @@ interface TitleScreenProps {
   highScore: number;
   onStartNormal: () => void;
   onStartDaily: () => void;
+  onWatchReplay?: () => void;
 }
 
-export function TitleScreen({ highScore, onStartNormal, onStartDaily }: TitleScreenProps) {
+export function TitleScreen({ highScore, onStartNormal, onStartDaily, onWatchReplay }: TitleScreenProps) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
       <h1 className="text-4xl font-bold text-green-400 mb-4">HOPPER</h1>
@@ -32,6 +33,14 @@ export function TitleScreen({ highScore, onStartNormal, onStartDaily }: TitleScr
           DAILY CHALLENGE
         </button>
         <p className="text-purple-300 text-sm text-center">{todayString()}</p>
+        {onWatchReplay && (
+          <button
+            onClick={onWatchReplay}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded transition-colors"
+          >
+            WATCH REPLAY
+          </button>
+        )}
       </div>
       
       <p className="text-gray-400 text-sm mt-4">Press SPACE for normal mode</p>

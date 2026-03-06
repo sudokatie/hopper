@@ -14,6 +14,7 @@ import {
   getAchievementManager,
   AchievementManager,
 } from './Achievements';
+import { Replay, ReplayData } from './Replay';
 import {
   INITIAL_LIVES,
   INITIAL_TIME,
@@ -59,6 +60,12 @@ export class Game {
   private crossedRoadLanes: Set<number> = new Set();
   private logRideStartX: number | null = null;
   private hasHopped: boolean = false;
+
+  // Replay system
+  private _replay: Replay = new Replay();
+  private _isPlayback: boolean = false;
+  private _lastReplayData: ReplayData | null = null;
+  private _recordingEnabled: boolean = true;
 
   onStateChange?: (state: GameState) => void;
   onAchievementUnlocked?: (achievement: Achievement) => void;
@@ -124,6 +131,12 @@ export class Game {
     this.homeManager.reset();
     this.laneObjects = createDefaultLanes();
     this.status = 'playing';
+    // Start recording replay
+    this._isPlayback = false;
+    this._lastReplayData = null;
+    if (this._recordingEnabled) {
+      this._replay.startRecording(1, false);
+    }
   }
 
   /** Start a daily challenge run */
@@ -150,6 +163,12 @@ export class Game {
     this.homeManager.reset();
     this.laneObjects = createDailyLanes(this.dailySeed, 1);
     this.status = 'playing';
+    // Start recording replay
+    this._isPlayback = false;
+    this._lastReplayData = null;
+    if (this._recordingEnabled) {
+      this._replay.startRecording(1, true);
+    }
   }
 
   /** Check if currently in daily mode */
@@ -160,6 +179,106 @@ export class Game {
   /** Get today's daily leaderboard */
   getDailyLeaderboard(): ReturnType<typeof DailyLeaderboard.getToday> {
     return DailyLeaderboard.getToday();
+  }
+
+  /** Get last recorded replay data */
+  getLastReplayData(): ReplayData | null {
+    return this._lastReplayData;
+  }
+
+  /** Check if currently in playback mode */
+  isPlaybackMode(): boolean {
+    return this._isPlayback;
+  }
+
+  /** Get playback progress (0-1) */
+  getPlaybackProgress(): number {
+    return this._replay.playbackProgress;
+  }
+
+  /** Check if playback is complete */
+  isPlaybackComplete(): boolean {
+    return this._replay.isPlaybackComplete;
+  }
+
+  /** Start playing back a replay */
+  startPlayback(data: ReplayData): void {
+    // Reset game state
+    this.scoreManager.reset();
+    this.lives = INITIAL_LIVES;
+    this.level = data.level;
+    this.maxTime = this.getTimeLimitForLevel(data.level);
+    this.timeRemaining = this.maxTime;
+    this.furthestRow = 13;
+    this.paused = false;
+    this.deathCause = null;
+    this.dailyMode = data.dailyMode;
+    
+    if (data.dailyMode) {
+      // For daily replays, we need to recreate the same seed
+      // The timestamp gives us the date
+      const replayDate = new Date(data.timestamp);
+      const dateStr = `${replayDate.getFullYear()}-${String(replayDate.getMonth() + 1).padStart(2, '0')}-${String(replayDate.getDate()).padStart(2, '0')}`;
+      let hash = 0;
+      for (let i = 0; i < dateStr.length; i++) {
+        hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
+        hash = hash & hash;
+      }
+      this.dailySeed = Math.abs(hash);
+      this.laneObjects = createDailyLanes(this.dailySeed, data.level);
+    } else {
+      this.dailySeed = 0;
+      this.laneObjects = createLanesForLevel(data.level);
+    }
+    
+    this.player.respawn();
+    this.homeManager.reset();
+    
+    // Start playback mode
+    this._isPlayback = true;
+    this._recordingEnabled = false;
+    this._replay.startPlayback(data);
+    this.status = 'playing';
+  }
+
+  /** Stop replay playback */
+  stopPlayback(): void {
+    this._isPlayback = false;
+    this._recordingEnabled = true;
+    this._replay.stopPlayback();
+    this.status = 'title';
+  }
+
+  /** Update playback - call from game loop */
+  private updatePlayback(): void {
+    if (!this._isPlayback || !this._replay.isPlaying) return;
+
+    // Get next action from replay
+    const direction = this._replay.getNextAction();
+    if (direction) {
+      // Execute the hopped movement
+      const hopped = this.player.hop(direction);
+      if (hopped) {
+        this.sound.play('hop');
+        const pos = this.player.getPosition();
+        
+        // Score for moving forward
+        if (direction === 'up' && pos.y < this.furthestRow) {
+          this.scoreManager.addHopForward();
+          this.furthestRow = pos.y;
+        }
+        
+        // Check home reached
+        if (pos.y === 0) {
+          this.checkHomeReached();
+        }
+      }
+    }
+
+    // Check if playback complete
+    if (this._replay.isPlaybackComplete) {
+      // Let the game continue running to show final state
+    }
   }
 
   toggleSound(): boolean {
@@ -198,6 +317,11 @@ export class Game {
 
   private update(deltaTime: number): void {
     if (this.status !== 'playing' || this.paused) return;
+
+    // Handle replay playback
+    if (this._isPlayback) {
+      this.updatePlayback();
+    }
 
     // Update player
     this.player.update(deltaTime);
@@ -321,6 +445,12 @@ export class Game {
 
   private handleDirection(direction: Direction): void {
     if (this.status !== 'playing') return;
+    if (this._isPlayback) return; // Ignore manual input during playback
+
+    // Record input for replay
+    if (this._replay.isRecording) {
+      this._replay.recordInput(direction);
+    }
 
     const hopped = this.player.hop(direction);
 
@@ -411,6 +541,16 @@ export class Game {
         this.sound.play('gameOver');
         this.scoreManager.checkHighScore();
 
+        // Stop recording replay
+        if (this._replay.isRecording) {
+          const filledCount = this.homeManager.getState().filter(h => h.filled).length;
+          this._lastReplayData = this._replay.stopRecording(
+            this.scoreManager.getScore(),
+            this.level,
+            filledCount
+          );
+        }
+
         // Check score achievements
         const score = this.scoreManager.getScore();
         const achievementsToCheck: string[] = [];
@@ -428,10 +568,12 @@ export class Game {
             this.level,
             filledCount
           );
-          // Check daily achievements
-          const dailyAchievements = this.achievements.recordDailyCompletion(rank);
-          for (const a of dailyAchievements) {
-            this.fireAchievement(a);
+          // Check daily achievements (only if we got a valid rank)
+          if (rank !== null) {
+            const dailyAchievements = this.achievements.recordDailyCompletion(rank);
+            for (const a of dailyAchievements) {
+              this.fireAchievement(a);
+            }
           }
         }
       } else {
