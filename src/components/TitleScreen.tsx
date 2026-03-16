@@ -11,7 +11,7 @@ interface TitleScreenProps {
 
 export function TitleScreen({ highScore, onStartNormal, onStartDaily, onWatchReplay }: TitleScreenProps) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0a]">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0a0a]">
       {/* Header */}
       <div className="w-full max-w-sm mb-4 px-4">
         <div className="flex items-center justify-between">
